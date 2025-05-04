@@ -1,0 +1,125 @@
+/**
+ * @fileoverview Parser utilities for Jison parser
+ * @path lib/util/parser-utils.js
+ */
+
+'use strict';
+
+/**
+ * Find states with only one action, a reduction
+ * Refactoring: Extract Method
+ * 
+ * @param {Array} states - Parser states
+ * @returns {Object} Default actions
+ */
+function findDefaults(states) {
+  const defaults = {};
+  
+  states.forEach(function(state, k) {
+    let actionCount = countActions(state);
+    let singleAction = findSingleAction(state);
+    
+    if (actionCount === 1 && singleAction && singleAction[0] === 2) {
+      // Only one action in state and it's a reduction
+      defaults[k] = singleAction;
+    }
+  });
+  
+  return defaults;
+}
+
+/**
+ * Count the number of actions in a state
+ * Refactoring: Extract Method
+ * 
+ * @param {Object} state - Parser state
+ * @returns {number} Number of actions
+ */
+function countActions(state) {
+  let count = 0;
+  
+  for (const act in state) {
+    if ({}.hasOwnProperty.call(state, act)) {
+      count++;
+    }
+  }
+  
+  return count;
+}
+
+/**
+ * Find the single action in a state
+ * Refactoring: Extract Method
+ * 
+ * @param {Object} state - Parser state
+ * @returns {Array|null} Action if only one exists
+ */
+function findSingleAction(state) {
+  let action = null;
+  
+  for (const act in state) {
+    if ({}.hasOwnProperty.call(state, act)) {
+      action = state[act];
+    }
+  }
+  
+  return action;
+}
+
+/**
+ * Format an action for printing
+ * Refactoring: Replace Conditional with Polymorphism
+ * 
+ * @param {Array} a - Action
+ * @param {Object} gen - Generator context
+ * @returns {string} Formatted action description
+ */
+function printAction(a, gen) {
+  const actionType = a[0];
+  
+  if (actionType === 1) {
+    return describeShiftAction(a);
+  } else if (actionType === 2) {
+    return describeReduceAction(a, gen);
+  } else {
+    return describeAcceptAction();
+  }
+}
+
+/**
+ * Describe a shift action
+ * Refactoring: Extract Method
+ * 
+ * @param {Array} action - Shift action
+ * @returns {string} Description
+ */
+function describeShiftAction(action) {
+  return 'shift token (then go to state ' + action[1] + ')';
+}
+
+/**
+ * Describe a reduce action
+ * Refactoring: Extract Method
+ * 
+ * @param {Array} action - Reduce action
+ * @param {Object} gen - Generator context
+ * @returns {string} Description
+ */
+function describeReduceAction(action, gen) {
+  return 'reduce by rule: ' + gen.productions[action[1]];
+}
+
+/**
+ * Describe an accept action
+ * Refactoring: Extract Method
+ * 
+ * @returns {string} Description
+ */
+function describeAcceptAction() {
+  return 'accept';
+}
+
+module.exports = {
+  findDefaults,
+  printAction
+};

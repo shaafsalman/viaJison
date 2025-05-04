@@ -1,0 +1,92 @@
+/**
+ * @fileoverview General utilities for Jison
+ * @path lib/util/general-utils.js
+ */
+
+'use strict';
+
+/**
+ * Create a variable name
+ * Refactoring: Replace Temp with Query
+ * 
+ * @param {number} nextVariableId - Next variable ID
+ * @param {Array} variableTokens - Tokens to use for variable names
+ * @param {number} variableTokensLength - Length of variableTokens array
+ * @returns {string} Generated variable name
+ */
+function createVariable(nextVariableId, variableTokens, variableTokensLength) {
+  let id = nextVariableId++;
+  let name = '$V';
+
+  do {
+    name += variableTokens[id % variableTokensLength];
+    id = Math.floor(id / variableTokensLength);
+  } while (id !== 0);
+
+  return name;
+}
+
+/**
+ * Main function for CommonJS usage
+ * Refactoring: Extract Method
+ * 
+ * @param {Array} args - Command line arguments
+ * @returns {*} Result of parsing source
+ */
+function commonjsMain(args) {
+  if (!args[1]) {
+    console.log('Usage: ' + args[0] + ' FILE');
+    process.exit(1);
+  }
+  
+  const fs = require('fs');
+  const path = require('path');
+  const source = fs.readFileSync(path.normalize(args[1]), 'utf8');
+  
+  return exports.parser.parse(source);
+}
+
+/**
+ * Iterate over a collection (array or object)
+ * Refactoring: Replace Method with Method Object
+ * 
+ * @param {Array|Object} collection - Collection to iterate
+ * @param {Function} callback - Callback for each item
+ */
+function each(collection, callback) {
+  if (Array.isArray(collection)) {
+    iterateArray(collection, callback);
+  } else {
+    iterateObject(collection, callback);
+  }
+}
+
+/**
+ * Iterate over an array
+ * Refactoring: Extract Method
+ * 
+ * @param {Array} array - Array to iterate
+ * @param {Function} callback - Callback for each item
+ */
+function iterateArray(array, callback) {
+  array.forEach(callback);
+}
+
+/**
+ * Iterate over an object
+ * Refactoring: Extract Method
+ * 
+ * @param {Object} object - Object to iterate
+ * @param {Function} callback - Callback for each item
+ */
+function iterateObject(object, callback) {
+  Object.keys(object).forEach(key => {
+    callback(object[key], key);
+  });
+}
+
+module.exports = {
+  createVariable,
+  commonjsMain,
+  each
+};

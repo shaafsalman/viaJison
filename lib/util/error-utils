@@ -1,0 +1,72 @@
+/**
+ * @fileoverview Error handling utilities for Jison parser
+ * @path lib/util/error-utils.js
+ */
+
+'use strict';
+
+const esprima = require('esprima');
+const JSONSelect = require('JSONSelect');
+const escodegen = require('escodegen');
+
+/**
+ * Removes error recovery code from parser function
+ * Refactoring: Extract Method, Replace Conditional with Polymorphism
+ * 
+ * @param {string} fn - Parser function as string
+ * @returns {string} Parser function without error recovery
+ */
+function removeErrorRecovery(fn) {
+  try {
+    const ast = esprima.parse(fn);
+    
+    // Find labeled statement with error handling
+    const labeled = JSONSelect.match(':has(:root > .label > .name:val("_handle_error"))', ast);
+    if (!labeled || !labeled.length) {
+      return fn;
+    }
+    
+    // Extract and modify the consequent body
+    const reducedCode = labeled[0].body.consequent.body[3].consequent.body;
+    
+    // Replace error depth calculation with the appropriate statement
+    reducedCode[0] = labeled[0].body.consequent.body[1];
+    
+    // Remove the 'recoverable' property
+    reducedCode[4].expression.arguments[1].properties.pop();
+    
+    // Update the AST
+    labeled[0].body.consequent.body = reducedCode;
+    
+    // Generate code from modified AST
+    return escodegen.generate(ast)
+      .replace(/_handle_error:\s?/, '')
+      .replace(/\\\\n/g, '\\n');
+  } catch (e) {
+    // Return original function if transformation fails
+    return fn;
+  }
+}
+
+/**
+ * Custom error handling for parser
+ * Refactoring: Extract Method
+ * 
+ * @param {string} str - Error message
+ * @param {Object} hash - Error information
+ * @throws {Error} Throws error if not recoverable
+ */
+function parseError(str, hash) {
+  if (hash.recoverable) {
+    this.trace(str);
+  } else {
+    const error = new Error(str);
+    error.hash = hash;
+    throw error;
+  }
+}
+
+module.exports = {
+  removeErrorRecovery,
+  parseError
+};

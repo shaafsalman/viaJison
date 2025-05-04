@@ -1,0 +1,156 @@
+/**
+ * @fileoverview Grammar processing utilities for Jison parser
+ * @path lib/util/grammar-utils.js
+ */
+
+'use strict';
+
+/**
+ * Process operator precedence and associativity
+ * Refactoring: Replace Temp with Query
+ * 
+ * @param {Array} ops - Array of operator definitions
+ * @returns {Object} Operators with precedence and associativity
+ */
+function processOperators(ops = []) {
+  return ops.reduce((operators, [assoc, ...tokens], index) => {
+    tokens.forEach(token => {
+      operators[token] = { 
+        precedence: index + 1, 
+        assoc 
+      };
+    });
+    return operators;
+  }, {});
+}
+
+/**
+ * Resolve shift/reduce conflicts
+ * Refactoring: Decompose Conditional, Extract Method
+ * 
+ * @param {Object} production - Production information
+ * @param {Object} op - Operator information
+ * @param {Array} reduce - Reduce action
+ * @param {Array} shift - Shift action
+ * @returns {Object} Conflict resolution
+ */
+function resolveConflict(production, op, reduce, shift) {
+  const sln = { 
+    production, 
+    operator: op, 
+    r: reduce, 
+    s: shift 
+  };
+  
+  const _shift = 1;   // shift
+  const _reduce = 2;  // reduce
+  const _accept = 3;  // accept
+  const NONASSOC = 0;
+  
+  // Handle reduce/reduce conflict
+  if (shift[0] === _reduce) {
+    return handleReduceReduceConflict(sln, shift, reduce);
+  }
+  
+  // Handle shift/reduce conflict
+  return handleShiftReduceConflict(sln, production, op, reduce, shift, NONASSOC);
+}
+
+/**
+ * Handle reduce/reduce conflicts
+ * Refactoring: Extract Method
+ * 
+ * @param {Object} sln - Solution object
+ * @param {Array} shift - Shift action
+ * @param {Array} reduce - Reduce action
+ * @returns {Object} Updated solution
+ */
+function handleReduceReduceConflict(sln, shift, reduce) {
+  sln.msg = 'Resolve R/R conflict (use first production declared in grammar.)';
+  sln.action = shift[1] < reduce[1] ? shift : reduce;
+  
+  if (shift[1] !== reduce[1]) {
+    sln.bydefault = true;
+  }
+  
+  return sln;
+}
+
+/**
+ * Handle shift/reduce conflicts
+ * Refactoring: Extract Method, Decompose Conditional
+ * 
+ * @param {Object} sln - Solution object
+ * @param {Object} production - Production information
+ * @param {Object} op - Operator information
+ * @param {Array} reduce - Reduce action
+ * @param {Array} shift - Shift action
+ * @param {number} NONASSOC - Non-associative action
+ * @returns {Object} Updated solution
+ */
+function handleShiftReduceConflict(sln, production, op, reduce, shift, NONASSOC) {
+  // No precedence or no operator - shift by default
+  if (production.precedence === 0 || !op) {
+    sln.msg = 'Resolve S/R conflict (shift by default.)';
+    sln.bydefault = true;
+    sln.action = shift;
+    return sln;
+  }
+  
+  // Different precedence levels
+  if (production.precedence < op.precedence) {
+    sln.msg = 'Resolve S/R conflict (shift for higher precedent operator.)';
+    sln.action = shift;
+    return sln;
+  }
+  
+  if (production.precedence > op.precedence) {
+    sln.msg = 'Resolve conflict (reduce for higher precedent production.)';
+    sln.action = reduce;
+    return sln;
+  }
+  
+  // Same precedence - use associativity
+  return resolveByAssociativity(sln, op, reduce, shift, NONASSOC);
+}
+
+/**
+ * Resolve conflicts based on associativity
+ * Refactoring: Extract Method
+ * 
+ * @param {Object} sln - Solution object
+ * @param {Object} op - Operator information
+ * @param {Array} reduce - Reduce action
+ * @param {Array} shift - Shift action
+ * @param {number} NONASSOC - Non-associative action
+ * @returns {Object} Updated solution
+ */
+function resolveByAssociativity(sln, op, reduce, shift, NONASSOC) {
+  switch (op.assoc) {
+    case 'right':
+      sln.msg = 'Resolve S/R conflict (shift for right associative operator.)';
+      sln.action = shift;
+      break;
+      
+    case 'left':
+      sln.msg = 'Resolve S/R conflict (reduce for left associative operator.)';
+      sln.action = reduce;
+      break;
+      
+    case 'nonassoc':
+      sln.msg = 'Resolve S/R conflict (no action for non-associative operator.)';
+      sln.action = NONASSOC;
+      break;
+      
+    default:
+      sln.msg = 'Resolve conflict (no associativity specified, using default)';
+      sln.action = shift;
+  }
+  
+  return sln;
+}
+
+module.exports = {
+  processOperators,
+  resolveConflict
+};
