@@ -2,24 +2,26 @@ var Jison = require("../setup").Jison,
     assert = require("assert");
 
 exports["test right-recursive nullable grammar"] = function () {
-
     var grammar = {
-        tokens: [ 'x' ],
+        tokens: ['x'],
         startSymbol: "A",
         bnf: {
-            "A" :[ 'x A',
-                   ''      ]
+            "A": [['x A'], ['']]
         }
     };
 
-    var gen = new Jison.Generator(grammar, {type: "slr"});
-    var gen2 = new Jison.Generator(grammar, {type: "lalr"});
+    var gen = new Jison.Generator(grammar, { type: "slr" });
+    gen.buildTable(); // Force table construction
+
+    var gen2 = new Jison.Generator(grammar, { type: "lalr" });
+    gen2.buildTable(); // Also for LALR
 
     assert.equal(gen.table.length, 4, "table has 4 states");
     assert.equal(gen.nullable('A'), true, "A is nullable");
     assert.equal(gen.conflicts, 0, "should have no conflict");
     assert.deepEqual(gen.table, gen2.table, "should have identical tables");
 };
+    
 
 exports["test slr lalr lr tables are equal"] = function () {
     var grammar = {

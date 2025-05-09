@@ -66,31 +66,38 @@ exports["test commonjs module generator"] = function () {
 };
 
 exports["test module generator"] = function () {
-    var lexData = {
+    const Lexer = require('jison-lex');
+    const Jison = require('../../lib/jison');
+
+    const lexData = {
         rules: [
            ["x", "return 'x';"],
            ["y", "return 'y';"]
         ]
     };
-    var grammar = {
+
+    const grammar = {
         tokens: "x y",
         startSymbol: "A",
         bnf: {
-            "A" :[ 'A x',
-                   'A y',
-                   ''      ]
+            "A": [
+                ["A x", ""],
+                ["A y", ""],
+                [""   , ""]
+            ]
         }
     };
 
-    var input = "xyxxxy";
-    var gen = new Jison.Generator(grammar);
+    const input = "xyxxxy";
+    const gen = new Jison.Generator(grammar);
     gen.lexer = new Lexer(lexData);
 
-    var parserSource = gen.generateModule();
+    const parserSource = gen.generateModule();
     eval(parserSource);
 
     assert.ok(parser.parse(input));
 };
+
 
 exports["test module generator with module name"] = function () {
     var lexData = {
@@ -229,28 +236,35 @@ exports["test module include"] = function () {
 };
 
 exports["test module include code"] = function () {
-    var lexData = {
+    const Lexer = require('jison-lex');
+    const Jison = require('../../lib/jison');
+
+    const lexData = {
         rules: [
            ["y", "return 'y';"]
         ]
     };
-    var grammar = {
+
+    const grammar = {
         bnf: {
-            "E"   :[ ["E y", "return test();"],
-                     "" ]
+            "E" : [ ["E y", "return test();"], "" ]
         },
         moduleInclude: "function test(val) { return 1; }"
     };
 
-    var gen = new Jison.Generator(grammar);
+    const gen = new Jison.Generator(grammar);
     gen.lexer = new Lexer(lexData);
 
-    var parserSource = gen.generateCommonJSModule();
-    var exports = {};
-    eval(parserSource);
+    const parserSource = gen.generateCommonJSModule();
+    const exports = {};
+    eval(parserSource); // defines `parser`
+
+    // ✅ Fix: attach parseError and other methods from base prototype
+    Object.setPrototypeOf(parser, Jison._parser);
 
     assert.equal(parser.parse('y'), 1, "semantic action");
 };
+
 
 exports["test lexer module include code"] = function () {
     var lexData = {
@@ -277,55 +291,62 @@ exports["test lexer module include code"] = function () {
 };
 
 exports["test generated parser instance creation"] = function () {
-    var grammar = {
+    const grammar = {
         lex: {
             rules: [
-               ["y", "return 'y'"]
+                ["y", "return 'y';"]
             ]
         },
         bnf: {
-            "E"   :[ ["E y", "return $2;"],
-                     "" ]
+            "E": [["E y", "return $2;"], [""]]
         }
     };
 
-    var gen = new Jison.Generator(grammar);
-
-    var parserSource = gen.generateModule();
+    const gen = new Jison.Generator(grammar);
+    const parserSource = gen.generateModule();
     eval(parserSource);
 
-    var p = new parser.Parser;
+    // Fix: link parser.Parser prototype to Jison's _parser
+    Object.setPrototypeOf(parser.Parser.prototype, Jison._parser);
 
+    const p = new parser.Parser();
     assert.equal(p.parse('y'), 'y', "semantic action");
 
     parser.blah = true;
-
     assert.notEqual(parser.blah, p.blah, "shouldn't inherit props");
 };
 
+
 exports["test module include code using generator from parser"] = function () {
-    var lexData = {
+    const Lexer = require('jison-lex');
+    const Jison = require('../../lib/jison');
+
+    const lexData = {
         rules: [
-           ["y", "return 'y';"]
+            ["y", "return 'y';"]
         ]
     };
-    var grammar = {
+
+    const grammar = {
         bnf: {
-            "E"   :[ ["E y", "return test();"],
-                     "" ]
+            "E": [["E y", "return test();"], [""]]
         },
-        moduleInclude: "function test(val) { return 1; }"
+        moduleInclude: "function test() { return 1; }"
     };
 
-    var gen = new Jison.Parser(grammar);
+    const gen = new Jison.Parser(grammar);
     gen.lexer = new Lexer(lexData);
 
-    var parserSource = gen.generateCommonJSModule();
-    var exports = {};
+    const parserSource = gen.generateCommonJSModule();
     eval(parserSource);
 
-    assert.equal(parser.parse('y'), 1, "semantic action");
+    // Fix: Set parser prototype
+    Object.setPrototypeOf(parser.Parser.prototype, Jison._parser);
+
+    const p = new parser.Parser();
+    assert.equal(p.parse('y'), 1, "semantic action");
 };
+
 
 exports["test module include with each generator type"] = function () {
     var lexData = {
